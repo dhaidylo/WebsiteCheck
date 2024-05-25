@@ -10,15 +10,26 @@ import android.os.SystemClock
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import java.security.MessageDigest
 
 class WebsiteCheckService: Service(){
-    private val websiteUrl = "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1"
+    private val immoweltUrl = "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1"
+    private val immoweltSelector = ".SearchResults-606eb"
+    private val immoweltRequest = Request.Builder().url(immoweltUrl).build()
+    private var immoweltHash: String? = null
+
+    private val sagaUrl = "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT"
+    private val sagaSelector = "#APARTMENT"
+    private val sagaRequest = Request.Builder().url(sagaUrl).build()
+    private var sagaHash: String? = null
+
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
-    private var previousContentHash: String? = null
+    private val okHttpClient = OkHttpClient()
+
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -80,7 +91,7 @@ class WebsiteCheckService: Service(){
         GlobalScope.launch(Dispatchers.IO) {
             while (isServiceStarted) {
                 launch(Dispatchers.IO) {
-                    checkWebsite()
+                    checkWebsites()
                 }
                 delay(1 * 10 * 1000)
             }
@@ -105,31 +116,35 @@ class WebsiteCheckService: Service(){
         setServiceState(this, ServiceState.STOPPED)
     }
 
-    private fun checkWebsite() {
+    private fun checkWebsites() {
+        sagaHash = checkWebsite(sagaRequest, sagaSelector, sagaHash, "Saga")
+        immoweltHash = checkWebsite(immoweltRequest, immoweltSelector, immoweltHash, "Immowelt")
+    }
+
+    private fun checkWebsite(request: Request, selector: String, hash: String?, name: String): String {
         try {
-            val currentHtml = fetchWebsiteHtml()
-            val currentDivContent = extractDivContent(currentHtml, ".SearchResults-606eb")
-            val currentHash = hashContent(currentDivContent)
-            if (previousContentHash != null && previousContentHash != currentHash) {
-                sendNotification("Website content has changed!")
+            val websiteContent = fetchWebsiteContent(request)
+            val currentContent = fetchDivContent(websiteContent, selector)
+            val currentHash = hashContent(currentContent)
+            if (hash != null && hash != currentHash) {
+                sendNotification("$name changed!")
             }
-            previousContentHash = currentHash
-        //
+            return currentHash
         } catch (e: Exception) {
             log("Error making the request: ${e.message}")
         }
+        return ""
     }
 
-    private fun fetchWebsiteHtml(): Document {
-        return try {
-            Jsoup.connect(websiteUrl).get()
-        } catch (e: Exception) {
-            Document("")
-        }
+    private fun fetchWebsiteContent(request: Request): String {
+        val response = okHttpClient.newCall(request).execute()
+        return response.body?.string() ?: ""
     }
 
-    private fun extractDivContent(document: Document, cssQuery: String): String {
-        return document.select(cssQuery).firstOrNull()?.html() ?: ""
+    private fun fetchDivContent(html: String, selector: String): String {
+        val document = Jsoup.parse(html)
+        val divElement = document.select(selector).firstOrNull()
+        return divElement?.html() ?: ""
     }
 
     private fun hashContent(content: String): String {
