@@ -1,37 +1,48 @@
 package com.example.websitecheck
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import android.app.Notification
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
 import java.security.MessageDigest
 
 class WebsiteChecker (
-    val url: String,
+    private val url: String,
     private val selector: String,
-    val name: String
+    private val name: String
 ) {
     companion object{
         private val okHttpClient = OkHttpClient()
     }
-
     private val request = Request.Builder().url(url).build()
     private var hash: String? = null
-
-    suspend fun initialize() {
-        withContext(Dispatchers.IO) {
-            hash = hashContent(fetchContent())
-        }
+    private lateinit var notifier: Notifier
+    fun initialize(context: Context) {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent: PendingIntent = PendingIntent.getActivity(context, 0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val builder = Notification.Builder(context, Notifier.CHANNEL_ID)
+            .setContentTitle("Website Check")
+            .setContentText(name)
+            .setContentIntent(intent)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+        notifier = Notifier(builder)
     }
-    fun check(): Boolean {
+
+    fun check() {
         val content = fetchContent()
         val currentHash = hashContent(content)
+        if (hash == null) {
+            hash = currentHash
+            return
+        }
         if (hash != currentHash) {
             hash = currentHash
-            return true
+            notifier.notify()
         }
-        return false
     }
 
     private fun fetchContent(): String {

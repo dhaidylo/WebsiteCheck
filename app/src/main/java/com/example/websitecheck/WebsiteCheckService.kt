@@ -12,7 +12,6 @@ import android.widget.Toast
 import kotlinx.coroutines.*
 
 class WebsiteCheckService: Service(){
-    private lateinit var notificationManager: NotificationManager
     private lateinit var wakeLock: PowerManager.WakeLock
 
     private var notificationId = 1
@@ -52,10 +51,10 @@ class WebsiteCheckService: Service(){
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        createNotificationChannel()
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        Notifier.initialize(notificationManager)
         log("The service has been created")
-        val notification = createNotification()
+        val notification = createNotification(notificationManager)
         startForeground(notificationId++, notification)
     }
 
@@ -90,13 +89,15 @@ class WebsiteCheckService: Service(){
                 }
             }
 
+        websiteCheckers.forEach {
+            it.initialize(this)
+        }
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
             websiteCheckers.forEach { checker ->
                 launch {
-                    checker.initialize()
                     while (isServiceStarted) {
-                        checkWebsite(checker)
+                        checker.check()
                         delay(1 * 10 * 1000)
                     }
                 }
@@ -122,45 +123,7 @@ class WebsiteCheckService: Service(){
         setServiceState(this, ServiceState.STOPPED)
     }
 
-    private fun checkWebsite(checker: WebsiteChecker) {
-        if (checker.check()) {
-            val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(checker.url))
-            val pendingIntent = PendingIntent.getActivity(this, 0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-            sendNotification("${checker.name} changed!", pendingIntent)
-        }
-    }
-
-    private fun createNotificationChannel(){
-        val channel = NotificationChannel(
-            "website_check",
-            "Website Check",
-            NotificationManager.IMPORTANCE_HIGH
-        ).let {
-            it.description = "Website Check Channel"
-            it.enableLights(true)
-            it.lightColor = Color.RED
-            it.enableVibration(true)
-            it.vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
-            it.setSound(
-                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
-                Notification.AUDIO_ATTRIBUTES_DEFAULT
-            )
-            it
-        }
-        notificationManager.createNotificationChannel(channel)
-    }
-
-    private fun sendNotification(message: String, pendingIntent: PendingIntent) {
-        val notification = Notification.Builder(this, "website_check")
-            .setContentTitle("Website Check")
-            .setContentText(message)
-            .setContentIntent(pendingIntent)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .build()
-        notificationManager.notify(notificationId, notification)
-    }
-
-    private fun createNotification(): Notification {
+    private fun createNotification(notificationManager: NotificationManager): Notification {
         val notificationChannelId = "website_check_service"
         val channel = NotificationChannel(
             notificationChannelId,
