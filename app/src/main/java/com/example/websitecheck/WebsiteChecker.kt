@@ -8,11 +8,14 @@ import org.jsoup.Jsoup
 import java.security.MessageDigest
 
 class WebsiteChecker (
-    url: String,
+    val url: String,
     private val selector: String,
-    private val okHttpClient: OkHttpClient,
     val name: String
 ) {
+    companion object{
+        private val okHttpClient = OkHttpClient()
+    }
+
     private val request = Request.Builder().url(url).build()
     private var hash: String? = null
 

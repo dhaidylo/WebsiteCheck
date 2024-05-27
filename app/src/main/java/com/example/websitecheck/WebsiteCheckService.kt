@@ -4,27 +4,32 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.widget.Toast
-import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
-import okhttp3.OkHttpClient
 
 class WebsiteCheckService: Service(){
-    private val okHttpClient = OkHttpClient()
-    private var notificationId = 2
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var wakeLock: PowerManager.WakeLock
 
-    private val immoweltUrl = "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1"
-    private val immoweltSelector = ".SearchList-22b2e"
-    private val immoweltChecker = WebsiteChecker(immoweltUrl, immoweltSelector, okHttpClient, "Immowelt")
+    private var notificationId = 1
 
-    private val sagaUrl = "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT"
-    private val sagaSelector = "#APARTMENT"
-    private val sagaChecker = WebsiteChecker(sagaUrl, sagaSelector, okHttpClient, "Saga")
+    private val websiteCheckers: List<WebsiteChecker> = listOf(
+        WebsiteChecker(
+            "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1",
+            ".SearchList-22b2e",
+            "Immowelt"
+        ),
+        WebsiteChecker(
+            "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT",
+            "#APARTMENT",
+            "Saga"
+        )
+    )
 
-    private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -47,9 +52,11 @@ class WebsiteCheckService: Service(){
 
     override fun onCreate() {
         super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createNotificationChannel()
         log("The service has been created")
         val notification = createNotification()
-        startForeground(1, notification)
+        startForeground(notificationId++, notification)
     }
 
     override fun onDestroy() {
@@ -85,20 +92,23 @@ class WebsiteCheckService: Service(){
 
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
-            immoweltChecker.initialize()
-            sagaChecker.initialize()
-            while (isServiceStarted) {
-                checkWebsites()
-                delay(1 * 10 * 1000)
+            websiteCheckers.forEach { checker ->
+                launch {
+                    checker.initialize()
+                    while (isServiceStarted) {
+                        checkWebsite(checker)
+                        delay(1 * 10 * 1000)
+                    }
+                }
             }
             log("End of the loop for the service")
         }
     }
-    
+
     private fun stopService() {
         log("Stopping the foreground service")
         try {
-            wakeLock?.let {
+            wakeLock.let {
                 if (it.isHeld) {
                     it.release()
                 }
@@ -112,55 +122,52 @@ class WebsiteCheckService: Service(){
         setServiceState(this, ServiceState.STOPPED)
     }
 
-    private suspend fun checkWebsites() = coroutineScope {
-        launch { checkWebsite(sagaChecker) }
-        launch { checkWebsite(immoweltChecker) }
-    }
-
-    private suspend fun checkWebsite(checker: WebsiteChecker) {
+    private fun checkWebsite(checker: WebsiteChecker) {
         if (checker.check()) {
-            sendNotification("${checker.name} changed!")
+            val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(checker.url))
+            val pendingIntent = PendingIntent.getActivity(this, 0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+            sendNotification("${checker.name} changed!", pendingIntent)
         }
     }
 
-    private fun sendNotification(message: String) {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "website_check_channel"
+    private fun createNotificationChannel(){
         val channel = NotificationChannel(
-            channelId,
+            "website_check",
             "Website Check",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).let {
-            it.description = "Website Check Service channel"
+            it.description = "Website Check Channel"
             it.enableLights(true)
             it.lightColor = Color.RED
             it.enableVibration(true)
             it.vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
-            it.setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, Notification.AUDIO_ATTRIBUTES_DEFAULT)
+            it.setSound(
+                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                Notification.AUDIO_ATTRIBUTES_DEFAULT
+            )
             it
         }
-
         notificationManager.createNotificationChannel(channel)
-        val notification = NotificationCompat.Builder(this, channelId)
+    }
+
+    private fun sendNotification(message: String, pendingIntent: PendingIntent) {
+        val notification = Notification.Builder(this, "website_check")
             .setContentTitle("Website Check")
             .setContentText(message)
+            .setContentIntent(pendingIntent)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .build()
         notificationManager.notify(notificationId, notification)
-        notificationId++
     }
 
     private fun createNotification(): Notification {
         val notificationChannelId = "website_check_service"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             notificationChannelId,
             "Website Check Service notifications channel",
             NotificationManager.IMPORTANCE_HIGH
         ).let {
             it.description = "Website Check Service channel"
-            it.enableLights(true)
-            it.lightColor = Color.RED
             it
         }
         notificationManager.createNotificationChannel(channel)
@@ -169,17 +176,11 @@ class WebsiteCheckService: Service(){
             PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
         }
 
-        val builder: Notification.Builder = Notification.Builder(
-            this,
-            notificationChannelId
-        )
-
-        return builder
+        return Notification.Builder(this, notificationChannelId)
             .setContentTitle("Website Check Service")
             .setContentText("Website Check service working")
             .setContentIntent(pendingIntent)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setTicker("Ticker text")
             .build()
     }
 }
