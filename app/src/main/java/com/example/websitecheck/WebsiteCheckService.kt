@@ -14,9 +14,10 @@ import okhttp3.OkHttpClient
 
 class WebsiteCheckService: Service(){
     private val okHttpClient = OkHttpClient()
+    private var notificationId = 2
 
     private val immoweltUrl = "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1"
-    private val immoweltSelector = ".SearchResults-606eb"
+    private val immoweltSelector = ".SearchList-22b2e"
     private val immoweltChecker = WebsiteChecker(immoweltUrl, immoweltSelector, okHttpClient, "Immowelt")
 
     private val sagaUrl = "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT"
@@ -84,6 +85,8 @@ class WebsiteCheckService: Service(){
 
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
+            immoweltChecker.initialize()
+            sagaChecker.initialize()
             while (isServiceStarted) {
                 checkWebsites()
                 delay(1 * 10 * 1000)
@@ -133,6 +136,7 @@ class WebsiteCheckService: Service(){
             it.lightColor = Color.RED
             it.enableVibration(true)
             it.vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
+            it.setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, Notification.AUDIO_ATTRIBUTES_DEFAULT)
             it
         }
 
@@ -142,7 +146,8 @@ class WebsiteCheckService: Service(){
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .build()
-        notificationManager.notify(1, notification)
+        notificationManager.notify(notificationId, notification)
+        notificationId++
     }
 
     private fun createNotification(): Notification {
@@ -156,8 +161,6 @@ class WebsiteCheckService: Service(){
             it.description = "Website Check Service channel"
             it.enableLights(true)
             it.lightColor = Color.RED
-            it.enableVibration(true)
-            it.vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
             it
         }
         notificationManager.createNotificationChannel(channel)

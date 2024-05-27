@@ -16,28 +16,36 @@ class WebsiteChecker (
     private val request = Request.Builder().url(url).build()
     private var hash: String? = null
 
-    suspend fun check(): Boolean {
-        val currentHash = hashContent(fetchContent())
-        val result = hash != null && currentHash != hash
-        hash = currentHash
-        return result
+    suspend fun initialize() {
+        withContext(Dispatchers.IO) {
+            hash = hashContent(fetchContent())
+        }
+    }
+    fun check(): Boolean {
+        val content = fetchContent()
+        val currentHash = hashContent(content)
+        if (hash != currentHash) {
+            hash = currentHash
+            return true
+        }
+        return false
     }
 
-    private suspend fun fetchContent(): String = withContext(Dispatchers.IO) {
-        try {
+    private fun fetchContent(): String {
+        return try {
             val response = okHttpClient.newCall(request).execute()
             val websiteContent = response.body?.string() ?: ""
             fetchContentBySelector(websiteContent, selector)
         } catch (e: Exception) {
             log("Error fetching content: ${e.message}")
-            "" // Возвращаем пустую строку в случае ошибки
+            ""
         }
     }
 
     private fun fetchContentBySelector(html: String, selector: String): String {
         val document = Jsoup.parse(html)
         val divElement = document.select(selector).firstOrNull()
-        return divElement?.html() ?: ""
+        return divElement?.text() ?: ""
     }
 
     private fun hashContent(content: String): String {
