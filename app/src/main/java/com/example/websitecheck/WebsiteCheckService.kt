@@ -10,23 +10,21 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.widget.Toast
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
 
 class WebsiteCheckService: Service(){
     private lateinit var wakeLock: PowerManager.WakeLock
-
+    private val okHttpClient = OkHttpClient()
     private var notificationId = 1
 
     private val websiteCheckers: List<WebsiteChecker> = listOf(
         WebsiteChecker(
             "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1",
             ".SearchList-22b2e",
-            "Immowelt"
+            "Immowelt",
+            okHttpClient
         ),
-        WebsiteChecker(
-            "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT",
-            "#APARTMENT",
-            "Saga"
-        )
+        SagaChecker(okHttpClient)
     )
 
     private var isServiceStarted = false

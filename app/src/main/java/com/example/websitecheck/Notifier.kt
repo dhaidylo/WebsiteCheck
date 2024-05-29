@@ -1,18 +1,19 @@
 package com.example.websitecheck
 
 import android.app.Notification
-import android.app.Notification.Builder
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 
-class Notifier (private val notificationBuilder: Builder){
+class Notifier(private val context: Context, name: String, url: String) {
     companion object {
         const val CHANNEL_ID = "website_check"
         private lateinit var manager: NotificationManager
         private var notificationId = 1
-
         fun initialize(notificationManager: NotificationManager) {
             manager = notificationManager
             createChannel();
@@ -39,11 +40,27 @@ class Notifier (private val notificationBuilder: Builder){
         }
     }
 
+    private val builder: Notification.Builder
 
+    init {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent: PendingIntent = PendingIntent.getActivity(context, ++notificationId, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        builder = Notification.Builder(context, CHANNEL_ID)
+            .setContentTitle("Website Check")
+            .setContentText(name)
+            .setContentIntent(intent)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setShowWhen(true)
+    }
 
-    fun notify(intent: PendingIntent? = null) {
-        if(intent != null)
-            notificationBuilder.setContentIntent(intent)
-        manager.notify(++notificationId, notificationBuilder.build())
+    fun notify(url: String? = null) {
+        notificationId++
+        builder.setWhen(System.currentTimeMillis())
+        if(url != null) {
+            val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            val intent: PendingIntent = PendingIntent.getActivity(context, notificationId, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+            builder.setContentIntent(intent)
+        }
+        manager.notify(notificationId, builder.build())
     }
 }
