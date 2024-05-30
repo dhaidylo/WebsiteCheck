@@ -15,7 +15,6 @@ import okhttp3.OkHttpClient
 class WebsiteCheckService: Service(){
     private lateinit var wakeLock: PowerManager.WakeLock
     private val okHttpClient = OkHttpClient()
-    private var notificationId = 1
 
     private val websiteCheckers: List<WebsiteChecker> = listOf(
         WebsiteChecker(
@@ -53,7 +52,7 @@ class WebsiteCheckService: Service(){
         Notifier.initialize(notificationManager)
         log("The service has been created")
         val notification = createNotification(notificationManager)
-        startForeground(notificationId++, notification)
+        startForeground(1, notification)
     }
 
     override fun onDestroy() {
@@ -66,9 +65,9 @@ class WebsiteCheckService: Service(){
         val restartServiceIntent = Intent(applicationContext, WebsiteCheckService::class.java).also {
             it.setPackage(packageName)
         }
-        val restartServicePendingIntent: PendingIntent = PendingIntent.getService(this, 1, restartServiceIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE)
-        applicationContext.getSystemService(Context.ALARM_SERVICE)
+        val restartServicePendingIntent: PendingIntent = PendingIntent.getService(
+            this, 1, restartServiceIntent, PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
         val alarmService: AlarmManager = applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent)
     }
@@ -80,12 +79,11 @@ class WebsiteCheckService: Service(){
         setServiceState(this, ServiceState.STARTED)
 
         // we need this lock so our service gets not affected by Doze Mode
-        wakeLock =
-            (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
-                newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WebsiteCheckService::lock").apply {
-                    acquire()
-                }
+        wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+            newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WebsiteCheckService::lock").apply {
+                acquire()
             }
+        }
 
         websiteCheckers.forEach {
             it.initialize(this)
@@ -107,10 +105,8 @@ class WebsiteCheckService: Service(){
     private fun stopService() {
         log("Stopping the foreground service")
         try {
-            wakeLock.let {
-                if (it.isHeld) {
-                    it.release()
-                }
+            if (wakeLock.isHeld) {
+                wakeLock.release()
             }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -127,9 +123,8 @@ class WebsiteCheckService: Service(){
             notificationChannelId,
             "Website Check Service notifications channel",
             NotificationManager.IMPORTANCE_HIGH
-        ).let {
-            it.description = "Website Check Service channel"
-            it
+        ).apply {
+            description = "Website Check Service channel"
         }
         notificationManager.createNotificationChannel(channel)
 

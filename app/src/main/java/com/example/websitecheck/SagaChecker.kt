@@ -1,5 +1,7 @@
 package com.example.websitecheck
 
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
@@ -11,7 +13,7 @@ class SagaChecker(okHttpClient: OkHttpClient) : WebsiteChecker(
     "Saga",
     okHttpClient
 ) {
-    private val urlBase = "https://www.saga.hamburg"
+    private val baseURL = "https://www.saga.hamburg"
     private var linksSet = emptySet<String>()
 
     override fun check() {
@@ -22,13 +24,17 @@ class SagaChecker(okHttpClient: OkHttpClient) : WebsiteChecker(
             return
         if (linksSet.isNotEmpty()) {
             val newLinks = links.subtract(linksSet)
-            newLinks.forEach {
-                val link = urlBase + it
-                val directLink = fetchDirectLink(link)
-                if (directLink != null)
-                    sendNotification(directLink)
-                else
-                    sendNotification(link)
+            runBlocking {
+                newLinks.forEach { relativeLink ->
+                    launch {
+                        val fullLink = baseURL + relativeLink
+                        val directLink = fetchDirectLink(fullLink)
+                        if (directLink != null)
+                            notifier.notify(directLink)
+                        else
+                            notifier.notify(fullLink)
+                    }
+                }
             }
         }
         linksSet = links
@@ -37,10 +43,6 @@ class SagaChecker(okHttpClient: OkHttpClient) : WebsiteChecker(
     private fun fetchLinks(element: Element): Set<String> {
         val links = element.select("a[href]")
         return links.map { it.attr("href") }.toSet()
-    }
-
-    private fun sendNotification(link: String) {
-        notifier.notify(urlBase+link)
     }
 
     private fun fetchDirectLink(url: String): String? {
