@@ -1,30 +1,31 @@
 package com.example.websitecheck
 
+import android.app.PendingIntent
 import android.content.Context
-import okhttp3.OkHttpClient
+import android.content.Intent
+import android.net.Uri
 import okhttp3.Request
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Element
-import java.security.MessageDigest
 
 open class WebsiteChecker (
-    private val url: String,
+    protected val url: String,
     protected val selector: String,
     protected val name: String,
-    private val okHttpClient: OkHttpClient
 ) {
-    protected val baseRequest = Request.Builder().url(url).build()
+    protected val request = Request.Builder().url(url).build()
     private var hash: String? = null
-    protected lateinit var notifier: Notifier
+    protected lateinit var notifier: INotifier
 
-    fun initialize(context: Context) {
-        notifier = Notifier(context, name, url)
+    open fun initialize(context: Context) {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent: PendingIntent = PendingIntent.getActivity(context,
+            0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        notifier = Notifier(context, intent)
     }
 
-    open fun check() {
-        val content = fetchContent(baseRequest) ?: return
-        val selectedContent = fetchContentBySelector(content, selector) ?: return
-        val text = selectedContent.text()
+    open fun run() {
+        val content = Fetcher.fetchHtml(request) ?: return
+        val element = getElementBySelector(content, selector) ?: return
+        val text = element.text()
         val currentHash = hashContent(text)
         if (hash == null) {
             hash = currentHash
@@ -32,28 +33,7 @@ open class WebsiteChecker (
         }
         if (hash != currentHash) {
             hash = currentHash
-            notifier.notify()
+            notifier?.notify(name)
         }
-    }
-
-    protected fun fetchContent(request: Request): String? {
-        return try {
-            val response = okHttpClient.newCall(request).execute()
-            response.body?.string()
-        } catch (e: Exception) {
-            log("Error fetching content: ${e.message}")
-            null
-        }
-    }
-
-    protected fun fetchContentBySelector(html: String, selector: String): Element? {
-        val document = Jsoup.parse(html)
-        return document.select(selector).firstOrNull()
-    }
-
-    private fun hashContent(content: String): String {
-        val messageDigest = MessageDigest.getInstance("SHA-256")
-        val hashBytes = messageDigest.digest(content.toByteArray())
-        return hashBytes.joinToString("") { "%02x".format(it) }
     }
 }

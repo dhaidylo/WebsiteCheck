@@ -3,27 +3,22 @@ package com.example.websitecheck
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.widget.Toast
 import kotlinx.coroutines.*
-import okhttp3.OkHttpClient
 
 class WebsiteCheckService: Service(){
     private lateinit var wakeLock: PowerManager.WakeLock
-    private val okHttpClient = OkHttpClient()
 
     private val websiteCheckers: List<WebsiteChecker> = listOf(
         WebsiteChecker(
             "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1",
             ".SearchList-22b2e",
-            "Immowelt",
-            okHttpClient
+            "Immowelt"
         ),
-        SagaChecker(okHttpClient)
+        SagaChecker()
     )
 
     private var isServiceStarted = false
@@ -88,12 +83,13 @@ class WebsiteCheckService: Service(){
         websiteCheckers.forEach {
             it.initialize(this)
         }
+        
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
             websiteCheckers.forEach { checker ->
                 launch {
                     while (isServiceStarted) {
-                        checker.check()
+                        checker.run()
                         delay(1 * 10 * 1000)
                     }
                 }

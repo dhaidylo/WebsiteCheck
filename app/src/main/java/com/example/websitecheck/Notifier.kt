@@ -5,15 +5,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 
-class Notifier(private val context: Context, name: String, url: String) {
+class Notifier(context: Context, private val baseIntent: PendingIntent): INotifier {
     companion object {
-        const val CHANNEL_ID = "website_check"
+        private const val APP_NAME = "Website Check"
+        private const val CHANNEL_ID = "website_check"
         private lateinit var manager: NotificationManager
         private var notificationId = 1
+
         fun initialize(notificationManager: NotificationManager) {
             manager = notificationManager
             createChannel();
@@ -22,7 +22,7 @@ class Notifier(private val context: Context, name: String, url: String) {
         private fun createChannel() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Website Check",
+                APP_NAME,
                 NotificationManager.IMPORTANCE_HIGH
             ).let {
                 it.description = "Website Check Channel"
@@ -40,27 +40,23 @@ class Notifier(private val context: Context, name: String, url: String) {
         }
     }
 
-    private val builder: Notification.Builder
+    private val builder: Notification.Builder = Notification.Builder(context, CHANNEL_ID)
+        .setContentTitle(APP_NAME)
+        .setContentIntent(baseIntent)
+        .setSmallIcon(android.R.drawable.ic_dialog_alert)
+        .setShowWhen(true)
 
-    init {
-        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        val intent: PendingIntent = PendingIntent.getActivity(context, ++notificationId, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        builder = Notification.Builder(context, CHANNEL_ID)
-            .setContentTitle("Website Check")
-            .setContentText(name)
-            .setContentIntent(intent)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setShowWhen(true)
+    override fun notify(message: String) {
+        builder.setWhen(System.currentTimeMillis())
+            .setContentIntent(baseIntent)
+            .setContentText(message)
+        manager.notify(++notificationId, builder.build())
     }
 
-    fun notify(url: String? = null) {
-        notificationId++
+    override fun notify(message: String, intent: PendingIntent) {
         builder.setWhen(System.currentTimeMillis())
-        if(url != null) {
-            val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            val intent: PendingIntent = PendingIntent.getActivity(context, notificationId, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-            builder.setContentIntent(intent)
-        }
-        manager.notify(notificationId, builder.build())
+            .setContentIntent(intent)
+            .setContentText(message)
+        manager.notify(++notificationId, builder.build())
     }
 }
