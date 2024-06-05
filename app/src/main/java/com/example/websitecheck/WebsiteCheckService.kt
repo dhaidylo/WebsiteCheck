@@ -14,7 +14,7 @@ class WebsiteCheckService: Service(){
 
     private val websiteCheckers: List<WebsiteChecker> = listOf(
         WebsiteChecker(
-            "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=10&sd=DESC&sf=TIMESTAMP&sp=1",
+            "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=20&sd=DESC&sf=TIMESTAMP&sp=1",
             ".SearchList-22b2e",
             "Immowelt"
         ),
@@ -83,7 +83,7 @@ class WebsiteCheckService: Service(){
         websiteCheckers.forEach {
             it.initialize(this)
         }
-        
+
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
             websiteCheckers.forEach { checker ->

@@ -8,7 +8,7 @@ fun getElementBySelector(html: String, selector: String): Element? {
     return document.select(selector).firstOrNull()
 }
 
-fun getLinks(element: Element): Set<String> {
+fun getLinks(element: Element): HashSet<String> {
     val links = element.select("a[href]")
-    return links.map { it.attr("href") }.toSet()
+    return links.map { it.attr("href") }.toHashSet()
 }

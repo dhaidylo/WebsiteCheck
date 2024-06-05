@@ -4,36 +4,57 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.Request
 
 open class WebsiteChecker (
-    protected val url: String,
-    protected val selector: String,
+    private val url: String,
+    private val selector: String,
     protected val name: String,
 ) {
-    protected val request = Request.Builder().url(url).build()
-    private var hash: String? = null
+    private lateinit var _context: Context
+    private val request = Request.Builder().url(url).build()
+    private var linksSet = hashSetOf<String>()
     protected lateinit var notifier: INotifier
 
-    open fun initialize(context: Context) {
+    open fun initialize(serviceContext: Context) {
+        _context = serviceContext
         val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        val intent: PendingIntent = PendingIntent.getActivity(context,
+        val intent: PendingIntent = PendingIntent.getActivity(_context,
             0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        notifier = Notifier(context, intent)
+        notifier = Notifier(_context, intent)
     }
 
     open fun run() {
         val content = Fetcher.fetchHtml(request) ?: return
-        val element = getElementBySelector(content, selector) ?: return
-        val text = element.text()
-        val currentHash = hashContent(text)
-        if (hash == null) {
-            hash = currentHash
+        val selectedContent = getElementBySelector(content, selector) ?: return
+        val links = getLinks(selectedContent)
+        if (links.isEmpty())
             return
+        if (linksSet.isEmpty())
+            linksSet = links
+        else {
+            val newLinks = links.subtract(linksSet)
+            runBlocking {
+                newLinks.forEach { link ->
+                    launch {
+                        processLink(link)
+                        linksSet.add(link)
+                    }
+                }
+            }
         }
-        if (hash != currentHash) {
-            hash = currentHash
-            notifier?.notify(name)
-        }
+    }
+
+    protected open fun processLink(link: String) {
+        sendNotification(link)
+    }
+
+    protected fun sendNotification(link: String) {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
+        val intent: PendingIntent = PendingIntent.getActivity(_context,
+            0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        notifier.notify(name, intent)
     }
 }
