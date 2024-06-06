@@ -10,14 +10,14 @@ import android.widget.Toast
 import kotlinx.coroutines.*
 
 class WebsiteCheckService: Service(){
-    private lateinit var wakeLock: PowerManager.WakeLock
+    private lateinit var _wakeLock: PowerManager.WakeLock
 
-    private val websiteCheckers: List<WebsiteChecker> = listOf(
+    private val _websiteCheckers: List<WebsiteChecker> = listOf(
         ImmoweltChecker(),
         SagaChecker()
     )
 
-    private var isServiceStarted = false
+    private var _isServiceStarted = false
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -64,26 +64,26 @@ class WebsiteCheckService: Service(){
     }
 
     private fun startService() {
-        if (isServiceStarted) return
+        if (_isServiceStarted) return
         log("Starting the foreground service task")
-        isServiceStarted = true
+        _isServiceStarted = true
         setServiceState(this, ServiceState.STARTED)
 
         // we need this lock so our service gets not affected by Doze Mode
-        wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+        _wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
             newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WebsiteCheckService::lock").apply {
                 acquire()
             }
         }
 
-        for (checker in websiteCheckers) {
+        for (checker in _websiteCheckers) {
             checker.initialize(this)
         }
 
         GlobalScope.launch(Dispatchers.IO) {
-            for (checker in websiteCheckers) {
+            for (checker in _websiteCheckers) {
                 launch {
-                    while (isServiceStarted) {
+                    while (_isServiceStarted) {
                         checker.run()
                         delay(1 * 10 * 1000)
                     }
@@ -96,15 +96,15 @@ class WebsiteCheckService: Service(){
     private fun stopService() {
         log("Stopping the foreground service")
         try {
-            if (wakeLock.isHeld) {
-                wakeLock.release()
+            if (_wakeLock.isHeld) {
+                _wakeLock.release()
             }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         } catch (e: Exception) {
             log("Service stopped without being started: ${e.message}")
         }
-        isServiceStarted = false
+        _isServiceStarted = false
         setServiceState(this, ServiceState.STOPPED)
     }
 

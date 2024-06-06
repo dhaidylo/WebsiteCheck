@@ -8,23 +8,23 @@ enum class ServiceState {
     STOPPED,
 }
 
-private const val name = "SERVICE_KEY"
-private const val key = "SERVICE_STATE"
+private const val NAME = "SERVICE_KEY"
+private const val KEY = "SERVICE_STATE"
 
 fun setServiceState(context: Context, state: ServiceState) {
     val sharedPrefs = getPreferences(context)
     sharedPrefs.edit().let {
-        it.putString(key, state.name)
+        it.putString(KEY, state.name)
         it.apply()
     }
 }
 
 fun getServiceState(context: Context): ServiceState {
     val sharedPrefs = getPreferences(context)
-    val value = sharedPrefs.getString(key, ServiceState.STOPPED.name)
+    val value = sharedPrefs.getString(KEY, ServiceState.STOPPED.name)
     return ServiceState.valueOf(value.toString())
 }
 
 private fun getPreferences(context: Context): SharedPreferences {
-    return context.getSharedPreferences(name, 0)
+    return context.getSharedPreferences(NAME, 0)
 }

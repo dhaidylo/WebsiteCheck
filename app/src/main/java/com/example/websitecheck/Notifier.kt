@@ -11,11 +11,11 @@ class Notifier(context: Context, private val baseIntent: PendingIntent) : INotif
     companion object {
         private const val APP_NAME = "Website Check"
         private const val CHANNEL_ID = "website_check"
-        private lateinit var manager: NotificationManager
-        private var notificationId = 1
+        private lateinit var _manager: NotificationManager
+        private var _notificationId = 1
 
         fun initialize(notificationManager: NotificationManager) {
-            manager = notificationManager
+            _manager = notificationManager
             createChannel();
         }
 
@@ -36,7 +36,7 @@ class Notifier(context: Context, private val baseIntent: PendingIntent) : INotif
                 )
                 it
             }
-            manager.createNotificationChannel(channel)
+            _manager.createNotificationChannel(channel)
         }
     }
 
@@ -50,13 +50,13 @@ class Notifier(context: Context, private val baseIntent: PendingIntent) : INotif
         builder.setWhen(System.currentTimeMillis())
             .setContentIntent(baseIntent)
             .setContentText(message)
-        manager.notify(++notificationId, builder.build())
+        _manager.notify(++_notificationId, builder.build())
     }
 
     override fun notify(message: String, intent: PendingIntent) {
         builder.setWhen(System.currentTimeMillis())
             .setContentIntent(intent)
             .setContentText(message)
-        manager.notify(++notificationId, builder.build())
+        _manager.notify(++_notificationId, builder.build())
     }
 }

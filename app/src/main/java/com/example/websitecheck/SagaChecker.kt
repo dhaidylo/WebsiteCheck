@@ -7,12 +7,12 @@ class SagaChecker() : WebsiteChecker(
     "#APARTMENT",
     "Saga"
 ) {
-    private val baseURL = "https://www.saga.hamburg"
+    private val _baseURL = "https://www.saga.hamburg"
 
     override fun processLink(link: Element) {
         val url = link.attr("href")
         if (!urlsSet.contains(url)) {
-            val fullUrl = baseURL + url
+            val fullUrl = _baseURL + url
             val directUrl = fetchDirectUrl(fullUrl)
             if (directUrl != null) {
                 sendNotification(directUrl)
