@@ -7,7 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.graphics.Color
 
-class Notifier(context: Context, private val baseIntent: PendingIntent): INotifier {
+class Notifier(context: Context, private val baseIntent: PendingIntent) : INotifier {
     companion object {
         private const val APP_NAME = "Website Check"
         private const val CHANNEL_ID = "website_check"

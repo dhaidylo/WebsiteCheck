@@ -4,57 +4,63 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import okhttp3.Request
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
 
 open class WebsiteChecker (
-    private val url: String,
-    private val selector: String,
-    protected val name: String,
+    private val _url: String,
+    private val _selector: String,
+    private val _name: String,
 ) {
     private lateinit var _context: Context
-    private val request = Request.Builder().url(url).build()
-    private var linksSet = hashSetOf<String>()
-    protected lateinit var notifier: INotifier
+    private val _request = Request.Builder().url(_url).build()
+    private lateinit var _notifier: INotifier
 
-    open fun initialize(serviceContext: Context) {
-        _context = serviceContext
-        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    protected lateinit var urlsSet: HashSet<String>
+
+    open fun initialize(context: Context) {
+        _context = context
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(_url))
         val intent: PendingIntent = PendingIntent.getActivity(_context,
             0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        notifier = Notifier(_context, intent)
+        _notifier = Notifier(_context, intent)
+        urlsSet = getLinks()?.map { it.attr("href") }?.toHashSet() ?: HashSet()
     }
 
-    open fun run() {
-        val content = Fetcher.fetchHtml(request) ?: return
-        val selectedContent = getElementBySelector(content, selector) ?: return
-        val links = getLinks(selectedContent)
-        if (links.isEmpty())
-            return
-        if (linksSet.isEmpty())
-            linksSet = links
-        else {
-            val newLinks = links.subtract(linksSet)
-            runBlocking {
-                newLinks.forEach { link ->
-                    launch {
-                        processLink(link)
-                        linksSet.add(link)
-                    }
-                }
-            }
+    fun run() {
+        val links = getLinks() ?: return
+        if (links.isEmpty()) return
+
+        for (link in links) {
+            processLink(link)
         }
     }
 
-    protected open fun processLink(link: String) {
-        sendNotification(link)
+    protected open fun processLink(link: Element) {
+        val url = link.attr("href")
+        if (!urlsSet.contains(url)) {
+            sendNotification(url)
+            urlsSet.add(url)
+        }
     }
 
-    protected fun sendNotification(link: String) {
-        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
+    private fun getLinks(): Elements? {
+        val content = Fetcher.fetchHtml(_request) ?: return null
+        val element = getElementBySelector(content, _selector) ?: return null
+        return element.select("a[href]")
+    }
+
+    protected fun getElementBySelector(html: String, selector: String): Element? {
+        val document = Jsoup.parse(html)
+        return document.select(selector).firstOrNull()
+    }
+
+    protected fun sendNotification(url: String) {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         val intent: PendingIntent = PendingIntent.getActivity(_context,
             0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        notifier.notify(name, intent)
+        _notifier.notify(_name, intent)
     }
 }

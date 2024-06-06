@@ -1,6 +1,6 @@
 package com.example.websitecheck
 
-import okhttp3.Request
+import org.jsoup.nodes.Element
 
 class SagaChecker() : WebsiteChecker(
     "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT",
@@ -9,18 +9,22 @@ class SagaChecker() : WebsiteChecker(
 ) {
     private val baseURL = "https://www.saga.hamburg"
 
-    override fun processLink(link: String) {
-        val fullLink = baseURL + link
-        val directLink = fetchDirectLink(fullLink)
-        if (directLink != null) {
-            sendNotification(directLink)
-        } else
-            notifier.notify(name)
+    override fun processLink(link: Element) {
+        val url = link.attr("href")
+        if (!urlsSet.contains(url)) {
+            val fullUrl = baseURL + url
+            val directUrl = fetchDirectUrl(fullUrl)
+            if (directUrl != null) {
+                sendNotification(directUrl)
+            } else {
+                sendNotification(fullUrl)
+            }
+            urlsSet.add(url)
+        }
     }
 
-    private fun fetchDirectLink(url: String): String? {
-        val request = Request.Builder().url(url).build()
-        val html = Fetcher.fetchHtml(request) ?: return null
+    private fun fetchDirectUrl(url: String): String? {
+        val html = Fetcher.fetchHtml(url) ?: return null
         val element = getElementBySelector(html, "a[href^=https://tenant.immomio.com/apply/]")
         return element?.attr("href")
     }

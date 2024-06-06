@@ -13,11 +13,7 @@ class WebsiteCheckService: Service(){
     private lateinit var wakeLock: PowerManager.WakeLock
 
     private val websiteCheckers: List<WebsiteChecker> = listOf(
-        WebsiteChecker(
-            "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=20&sd=DESC&sf=TIMESTAMP&sp=1",
-            ".SearchList-22b2e",
-            "Immowelt"
-        ),
+        ImmoweltChecker(),
         SagaChecker()
     )
 
@@ -80,13 +76,12 @@ class WebsiteCheckService: Service(){
             }
         }
 
-        websiteCheckers.forEach {
-            it.initialize(this)
+        for (checker in websiteCheckers) {
+            checker.initialize(this)
         }
 
-        // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
-            websiteCheckers.forEach { checker ->
+            for (checker in websiteCheckers) {
                 launch {
                     while (isServiceStarted) {
                         checker.run()

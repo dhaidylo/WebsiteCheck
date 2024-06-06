@@ -16,5 +16,10 @@ class Fetcher {
                 null
             }
         }
+
+        fun fetchHtml(url: String): String? {
+            val request = Request.Builder().url(url).build()
+            return fetchHtml(request)
+        }
     }
 }
