@@ -4,35 +4,39 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.Request
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
 open class WebsiteChecker (
-    private val _url: String,
+    private val _context: Context,
+    url: String,
     private val _selector: String,
     private val _name: String,
 ) {
-    private lateinit var _context: Context
-    private val _request = Request.Builder().url(_url).build()
-    private lateinit var _notifier: INotifier
+    private val _request = Request.Builder().url(url).build()
+    private var _notifier: INotifier
 
     protected lateinit var urlsSet: HashSet<String>
 
-    open fun initialize(context: Context) {
-        _context = context
-        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(_url))
-        val intent: PendingIntent = PendingIntent.getActivity(_context,
-            0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+    init {
+        val intent = createUrlPendingIntent(url)
         _notifier = Notifier(_context, intent)
-        urlsSet = getLinks()?.map { it.attr("href") }?.toHashSet() ?: HashSet()
     }
 
     fun run() {
         val links = getLinks() ?: return
         if (links.isEmpty()) return
-
+        if (!::urlsSet.isInitialized) {
+            urlsSet = getLinks()?.map { it.attr("href") }?.toHashSet() ?: HashSet()
+            return
+        }
         for (link in links) {
             processLink(link)
         }
@@ -58,9 +62,13 @@ open class WebsiteChecker (
     }
 
     protected fun sendNotification(url: String) {
-        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        val intent: PendingIntent = PendingIntent.getActivity(_context,
-            0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val intent = createUrlPendingIntent(url)
         _notifier.notify(_name, intent)
+    }
+
+    private fun createUrlPendingIntent(url: String) : PendingIntent {
+        val openUrlIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        return PendingIntent.getActivity(_context,
+            0, openUrlIntent, PendingIntent.FLAG_UPDATE_CURRENT)
     }
 }

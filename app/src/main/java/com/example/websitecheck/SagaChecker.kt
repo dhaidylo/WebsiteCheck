@@ -1,8 +1,10 @@
 package com.example.websitecheck
 
+import android.content.Context
 import org.jsoup.nodes.Element
 
-class SagaChecker() : WebsiteChecker(
+class SagaChecker(context: Context) : WebsiteChecker(
+    context,
     "https://www.saga.hamburg/immobiliensuche?Kategorie=APARTMENT",
     "#APARTMENT",
     "Saga"

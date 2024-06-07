@@ -12,10 +12,7 @@ import kotlinx.coroutines.*
 class WebsiteCheckService: Service(){
     private lateinit var _wakeLock: PowerManager.WakeLock
 
-    private val _websiteCheckers: List<WebsiteChecker> = listOf(
-        ImmoweltChecker(),
-        SagaChecker()
-    )
+    private lateinit var _websiteCheckers: List<WebsiteChecker>
 
     private var _isServiceStarted = false
 
@@ -41,6 +38,10 @@ class WebsiteCheckService: Service(){
         super.onCreate()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         Notifier.initialize(notificationManager)
+        _websiteCheckers = listOf(
+            ImmoweltChecker(this),
+            SagaChecker(this)
+        )
         log("The service has been created")
         val notification = createNotification(notificationManager)
         startForeground(1, notification)
@@ -74,10 +75,6 @@ class WebsiteCheckService: Service(){
             newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WebsiteCheckService::lock").apply {
                 acquire()
             }
-        }
-
-        for (checker in _websiteCheckers) {
-            checker.initialize(this)
         }
 
         GlobalScope.launch(Dispatchers.IO) {
