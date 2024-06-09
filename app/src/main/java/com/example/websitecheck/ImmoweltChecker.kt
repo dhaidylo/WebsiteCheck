@@ -4,9 +4,9 @@ import android.content.Context
 import org.jsoup.nodes.Element
 import java.util.regex.Pattern
 
-class ImmoweltChecker(context: Context) : WebsiteChecker(
+class ImmoweltChecker(context: Context, settings: Settings) : WebsiteChecker(
     context,
-    "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=55&ami=30&d=true&pma=600&r=20&sd=DESC&sf=TIMESTAMP&sp=1",
+    "https://www.immowelt.de/suche/hamburg/wohnungen/mieten?ama=${settings.maxArea}&ami=${settings.minArea}&d=true&pma=${settings.maxPrice}&r=20&sd=DESC&sf=TIMESTAMP&sp=1",
     ".SearchList-22b2e",
     "Immowelt"
 ) {

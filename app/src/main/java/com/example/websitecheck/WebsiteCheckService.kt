@@ -11,10 +11,10 @@ import kotlinx.coroutines.*
 
 class WebsiteCheckService: Service(){
     private lateinit var _wakeLock: PowerManager.WakeLock
-
     private lateinit var _websiteCheckers: List<WebsiteChecker>
 
     private var _isServiceStarted = false
+    private lateinit var _settings: Settings
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -36,10 +36,13 @@ class WebsiteCheckService: Service(){
 
     override fun onCreate() {
         super.onCreate()
+        runBlocking {
+            _settings = readSettings(applicationContext)
+        }
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         Notifier.initialize(notificationManager)
         _websiteCheckers = listOf(
-            ImmoweltChecker(this),
+            ImmoweltChecker(this, _settings),
             SagaChecker(this)
         )
         log("The service has been created")
@@ -82,7 +85,7 @@ class WebsiteCheckService: Service(){
                 launch {
                     while (_isServiceStarted) {
                         checker.run()
-                        delay(1 * 10 * 1000)
+                        delay(_settings.checkInterval * 1000L)
                     }
                 }
             }

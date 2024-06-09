@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -68,4 +69,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation (libs.jsoup)
     implementation(libs.okhttp)
+    implementation(libs.androidx.datastore.preferences)
 }
